@@ -59,6 +59,7 @@ Swapchain :: struct {
 }
 
 FrameData :: struct {
+    deletion: LambdaStack,
     cmdpool: vk.CommandPool,
     cmdbuffer: vk.CommandBuffer,
     swapchain_semaphore, render_semaphore: vk.Semaphore,
@@ -167,6 +168,5 @@ create_sync_structures :: proc(using vctx: ^VulkanContext) {
         vk.CreateFence(device, &finfo, nil, &frame.render_fence)
         vk.CreateSemaphore(device, &sinfo, nil, &frame.render_semaphore)
         vk.CreateSemaphore(device, &sinfo, nil, &frame.swapchain_semaphore)
-
     }
 }
