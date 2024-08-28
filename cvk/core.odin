@@ -36,6 +36,10 @@ VulkanContext :: struct {
     frames: [FRAME_OVERLAP]FrameData,
     qf_ids: [QueueType]int,
     queues: [QueueType]vk.Queue,
+
+    descriptor_allocator: DescriptorAllocator,
+    draw_descriptor: vk.DescriptorSet,
+    draw_descriptor_layout: vk.DescriptorSetLayout,
 }
 
 QueueType :: enum {
@@ -97,11 +101,15 @@ init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
     create_swapchain(vctx, auto_cast width, auto_cast height)
     create_commands(vctx)
     create_sync_structures(vctx)
+    create_descriptors(vctx)
 }
 
 deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
     vk.DeviceWaitIdle(device)
     
+    deinit_descriptor_allocator(&descriptor_allocator, device)
+    vk.DestroyDescriptorSetLayout(device, draw_descriptor_layout, nil)
+
     vk.DestroyImageView(device, swapchain.draw.view, nil)
     vma.DestroyImage(vmalloc, swapchain.draw.image, swapchain.draw.allocation)
 
@@ -187,4 +195,34 @@ create_sync_structures :: proc(using vctx: ^VulkanContext) {
         vk.CreateSemaphore(device, &sinfo, nil, &frame.render_semaphore)
         vk.CreateSemaphore(device, &sinfo, nil, &frame.swapchain_semaphore)
     }
+}
+
+create_descriptors :: proc(using vctx: ^VulkanContext) {
+    sizes := [1]PoolSizeRatio{{.STORAGE_IMAGE, 1}}
+    init_descriptor_pool(&descriptor_allocator, device, 10, sizes[:])
+
+    {
+        builder: DescriptorLayoutBuilder
+        add_binding(&builder, 0, .STORAGE_IMAGE)
+        draw_descriptor_layout = build_descriptor_set(&builder, device, {.COMPUTE})
+    }
+
+    draw_descriptor = allocate_descriptor_set(&descriptor_allocator, device, &draw_descriptor_layout)
+
+    img_info := vk.DescriptorImageInfo {
+        imageLayout = .GENERAL,
+        imageView = swapchain.draw.view,
+    }
+
+    draw_write := vk.WriteDescriptorSet {
+        sType = .WRITE_DESCRIPTOR_SET,
+        pNext = nil,
+        dstBinding = 0,
+        dstSet = draw_descriptor,
+        descriptorCount = 1,
+        descriptorType = .STORAGE_IMAGE,
+        pImageInfo = &img_info,
+    }
+    vk.UpdateDescriptorSets(device, 1, &draw_write, 0, nil)
+
 }

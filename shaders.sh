@@ -1,0 +1,1 @@
+glslc assets/gradient.comp -o assets/gradient.comp.spv

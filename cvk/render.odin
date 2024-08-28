@@ -2,20 +2,28 @@ package cvk
 import vk "vendor:vulkan"
 import "core:math"
 
-render :: proc(using vctx: ^VulkanContext) {
-    frame := current_frame(vctx)
+render_background :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame: ^FrameData) {
+    flash: f32 = math.abs(math.sin(f32(frame_number) / 120.0)) 
+    clear_color := vk.ClearColorValue { float32={ 0.0, 0.0, flash, 0.0 }}
+
+    clear_range := make_subresource_range({.COLOR})
+    vk.CmdClearColorImage(cmd, swapchain.draw.image, .GENERAL, &clear_color, 1, &clear_range)
+}
+
+
+render_prepare :: proc(using vctx: ^VulkanContext) -> (frame: ^FrameData, cmd: vk.CommandBuffer, img_idx: u32) {
+    frame = current_frame(vctx)
     vk.WaitForFences(device, 1, &frame.render_fence, true, 1000000000)
     flush(&frame.lambdas, vctx)
     vk.ResetFences(device, 1, &frame.render_fence)
     
-    image_index: u32
-    vk.AcquireNextImageKHR(device, swapchain.handle, 1000000000, frame.swapchain_semaphore, {}, &image_index)
+    vk.AcquireNextImageKHR(device, swapchain.handle, 1000000000, frame.swapchain_semaphore, {}, &img_idx)
 
     draw := swapchain.draw
     swapchain.draw_extent.width = draw.extent.width
     swapchain.draw_extent.height = draw.extent.height
 
-    cmd := frame.cmdbuffer
+    cmd = frame.cmdbuffer
     vk.ResetCommandBuffer(cmd, {})
 
     binfo := vk.CommandBufferBeginInfo {
@@ -25,21 +33,19 @@ render :: proc(using vctx: ^VulkanContext) {
 
     vk.BeginCommandBuffer(cmd, &binfo)
 
-
     transition_image(cmd, draw.image, .UNDEFINED, .GENERAL)
+    return
+}
 
-    flash: f32 = math.abs(math.sin(f32(frame_number) / 120.0)) 
-    clear_color := vk.ClearColorValue { float32={ 0.0, 0.0, flash, 0.0 }}
-
-    clear_range := make_subresource_range({.COLOR})
-    vk.CmdClearColorImage(cmd, swapchain.draw.image, .GENERAL, &clear_color, 1, &clear_range)
-
+render_finalize :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame: ^FrameData, img_idx: u32) {
+    draw := swapchain.draw
+    imdx := img_idx
     transition_image(cmd, draw.image, .GENERAL, .TRANSFER_SRC_OPTIMAL)
-    transition_image(cmd, swapchain.images[image_index], .UNDEFINED, .TRANSFER_DST_OPTIMAL)
+    transition_image(cmd, swapchain.images[imdx], .UNDEFINED, .TRANSFER_DST_OPTIMAL)
 
-    copy_simple_image_to_image(cmd, draw.image, swapchain.images[image_index], swapchain.draw_extent, swapchain.extent)
+    copy_simple_image_to_image(cmd, draw.image, swapchain.images[imdx], swapchain.draw_extent, swapchain.extent)
 
-    transition_image(cmd, swapchain.images[image_index], .TRANSFER_DST_OPTIMAL, .PRESENT_SRC_KHR)
+    transition_image(cmd, swapchain.images[imdx], .TRANSFER_DST_OPTIMAL, .PRESENT_SRC_KHR)
     
     vk.EndCommandBuffer(cmd)
 
@@ -56,7 +62,7 @@ render :: proc(using vctx: ^VulkanContext) {
         pSwapchains = &swapchain.handle,
         waitSemaphoreCount = 1,
         pWaitSemaphores = &frame.render_semaphore,
-        pImageIndices = &image_index
+        pImageIndices = &imdx,
     }
     vk.QueuePresentKHR(queues[.Present], &prenfo)
     frame_number += 1

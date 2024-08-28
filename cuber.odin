@@ -42,7 +42,9 @@ main :: proc() {
 
     for !glfw.WindowShouldClose(window) { 
         glfw.PollEvents()
-        cvk.render(&vctx)
+        frame, cmd, imdx := cvk.render_prepare(&vctx)
+        cvk.render_background(&vctx, cmd, frame)
+        cvk.render_finalize(&vctx, cmd, frame, imdx)
     }
 }
 
