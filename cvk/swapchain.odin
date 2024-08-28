@@ -5,6 +5,8 @@ import "core:fmt"
 
 import vk "vendor:vulkan"
 
+import vma "../vma"
+
 query_swapchain_details :: proc(using vctx: ^VulkanContext) {
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(pdevice, surface, &swapchain.capabilities)
 
@@ -48,22 +50,24 @@ pick_swap_extent :: proc(using vctx: ^VulkanContext, width, height: u32) -> vk.E
 }
 
 create_swapchain :: proc(using vctx: ^VulkanContext, width, height: u32) {
-    swapchain.format = pick_surface_format(vctx)
-    swapchain.present_mode = pick_present_mode(vctx)
-    swapchain.extent = pick_swap_extent(vctx, width, height)
-    swapchain.image_count = swapchain.capabilities.minImageCount + 1
+    sc := &swapchain
 
-    if swapchain.capabilities.maxImageCount > 0 && swapchain.image_count > swapchain.capabilities.maxImageCount {
-        swapchain.image_count = swapchain.capabilities.maxImageCount
+    sc.format = pick_surface_format(vctx)
+    sc.present_mode = pick_present_mode(vctx)
+    sc.extent = pick_swap_extent(vctx, width, height)
+    sc.image_count = swapchain.capabilities.minImageCount + 1
+
+    if sc.capabilities.maxImageCount > 0 && sc.image_count > sc.capabilities.maxImageCount {
+        sc.image_count = sc.capabilities.maxImageCount
     }
 
     info: vk.SwapchainCreateInfoKHR
     info.sType = .SWAPCHAIN_CREATE_INFO_KHR
     info.surface = surface
-    info.minImageCount = swapchain.image_count
-    info.imageFormat = swapchain.format.format
-    info.imageColorSpace = swapchain.format.colorSpace
-    info.imageExtent = swapchain.extent
+    info.minImageCount = sc.image_count
+    info.imageFormat = sc.format.format
+    info.imageColorSpace = sc.format.colorSpace
+    info.imageExtent = sc.extent
     info.imageArrayLayers = 1
     info.imageUsage = {.COLOR_ATTACHMENT,.TRANSFER_DST}
     qf_indices := [2]u32{u32(qf_ids[.GCT]), u32(qf_ids[.Present])};
@@ -78,45 +82,55 @@ create_swapchain :: proc(using vctx: ^VulkanContext, width, height: u32) {
         info.pQueueFamilyIndices = nil
     }
 
-    info.preTransform = swapchain.capabilities.currentTransform
+    info.preTransform = sc.capabilities.currentTransform
     info.compositeAlpha = {.OPAQUE}
-    info.presentMode = swapchain.present_mode
+    info.presentMode = sc.present_mode
     info.clipped = true
-    info.oldSwapchain = swapchain.handle
+    info.oldSwapchain = sc.handle
 
-    if vk.CreateSwapchainKHR(device, &info, nil, &swapchain.handle) != .SUCCESS {
+    if vk.CreateSwapchainKHR(device, &info, nil, &sc.handle) != .SUCCESS {
         fmt.eprintfln("Error: failed to create swapchain!")
         os.exit(1)
     }
 
-    vk.GetSwapchainImagesKHR(device, swapchain.handle, &swapchain.image_count, nil)
-    swapchain.images = make([]vk.Image, swapchain.image_count)
-    vk.GetSwapchainImagesKHR(device, swapchain.handle, &swapchain.image_count, raw_data(swapchain.images))
-}
+    vk.GetSwapchainImagesKHR(device, sc.handle, &sc.image_count, nil)
+    sc.images = make([]vk.Image, swapchain.image_count)
+    vk.GetSwapchainImagesKHR(device, sc.handle, &sc.image_count, raw_data(swapchain.images))
 
-create_image_views :: proc(using vctx: ^VulkanContext) {
-    using vctx.swapchain
-    views = make([]vk.ImageView, len(images))
+    sc.views = make([]vk.ImageView, len(sc.images))
 
-    for _img, i in images {
-        info: vk.ImageViewCreateInfo
-        info.sType = .IMAGE_VIEW_CREATE_INFO
-        info.image = images[i]
-        info.viewType = .D2
-        info.format = format.format
-        info.components.r = .IDENTITY
-        info.components.g = .IDENTITY
-        info.components.b = .IDENTITY
-        info.components.a = .IDENTITY
-        info.subresourceRange.aspectMask = {.COLOR }
-        info.subresourceRange.baseMipLevel = 0
-        info.subresourceRange.levelCount = 1
-        info.subresourceRange.baseArrayLayer = 0
-        info.subresourceRange.layerCount = 1
+    for _img, i in sc.images {
+        info := make_image_view_info(sc.format.format, sc.images[i], {.COLOR})
 
-        if vk.CreateImageView(device, &info, nil, &views[i]) != .SUCCESS {
+        if vk.CreateImageView(device, &info, nil, &sc.views[i]) != .SUCCESS {
             fmt.eprintfln("Error: failed to create ImageView!")
-            os.exit(0)
+            os.exit(1)
         }
     }
+
+    sc.draw.extent = vk.Extent3D {
+        width = width,
+        height = height,
+        depth = 1,
+    }
+    sc.draw.format = .R16G16B16A16_SFLOAT
+    
+    draw_img_info := make_image_info(sc.draw.format, {.TRANSFER_SRC, .TRANSFER_DST, .STORAGE, .COLOR_ATTACHMENT}, sc.draw.extent)
+    draw_img_alloc_info := vma.AllocationCreateInfo {
+        usage = .GPU_ONLY,
+        requiredFlags = {.DEVICE_LOCAL},
+    }
+    
+    if vma.CreateImage(vmalloc, &draw_img_info, &draw_img_alloc_info, &sc.draw.image, &sc.draw.allocation, nil) != .SUCCESS {
+        fmt.eprintfln("Error: failed to allocate Draw Image")
+        os.exit(1)
+    }
+
+    draw_img_view_info := make_image_view_info(sc.draw.format, sc.draw.image, {.COLOR})
+
+    if vk.CreateImageView(device, &draw_img_view_info, nil, &sc.draw.view) != .SUCCESS {
+        fmt.eprintfln("Error: failed to allocate Draw Image View")
+        os.exit(1)
+    }
+
 }

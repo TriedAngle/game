@@ -28,6 +28,7 @@ VulkanContext :: struct {
     pdevice: vk.PhysicalDevice,
     device: vk.Device,
     vmalloc: vma.Allocator,
+    lambdas: LambdaStack,
 
     frame_number: u64,
     surface: vk.SurfaceKHR,
@@ -49,6 +50,8 @@ Swapchain :: struct {
     handle: vk.SwapchainKHR,
     images: []vk.Image,
     views: []vk.ImageView,
+    draw: Image,
+    draw_extent: vk.Extent2D,
     format: vk.SurfaceFormatKHR,
     extent: vk.Extent2D,
     present_mode: vk.PresentModeKHR,
@@ -59,11 +62,19 @@ Swapchain :: struct {
 }
 
 FrameData :: struct {
-    deletion: LambdaStack,
+    lambdas: LambdaStack,
     cmdpool: vk.CommandPool,
     cmdbuffer: vk.CommandBuffer,
     swapchain_semaphore, render_semaphore: vk.Semaphore,
     render_fence: vk.Fence,
+}
+
+Image :: struct {
+    image: vk.Image,
+    view: vk.ImageView,
+    allocation: vma.Allocation,
+    extent: vk.Extent3D,
+    format: vk.Format,
 }
 
 init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
@@ -84,25 +95,32 @@ init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
     create_queues(vctx)
     query_swapchain_details(vctx)
     create_swapchain(vctx, auto_cast width, auto_cast height)
-    create_image_views(vctx)
     create_commands(vctx)
     create_sync_structures(vctx)
 }
 
 deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
     vk.DeviceWaitIdle(device)
-    vma.DestroyAllocator(vmalloc)
-    for frame in frames {
+    
+    vk.DestroyImageView(device, swapchain.draw.view, nil)
+    vma.DestroyImage(vmalloc, swapchain.draw.image, swapchain.draw.allocation)
+
+    for &frame in frames {
         vk.DestroyFence(device, frame.render_fence, nil)
         vk.DestroySemaphore(device, frame.render_semaphore, nil)
         vk.DestroySemaphore(device, frame.swapchain_semaphore, nil)
         vk.DestroyCommandPool(device, frame.cmdpool, nil)
+        flush(&frame.lambdas, vctx)
     }
+
     for view in swapchain.views {
         vk.DestroyImageView(device, view, nil)
     }
+
+    flush(&lambdas, vctx)
     vk.DestroySwapchainKHR(device, swapchain.handle, nil)
     vk.DestroySurfaceKHR(instance, surface, nil)
+    vma.DestroyAllocator(vmalloc)
     vk.DestroyDevice(device, nil)
     vk.DestroyInstance(instance, nil)
 }

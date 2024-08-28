@@ -2,13 +2,21 @@ package cvk
 
 import vk "vendor:vulkan"
 
-make_subresource_range :: proc(aspect_mask: vk.ImageAspectFlags) -> vk.ImageSubresourceRange {
+current_frame :: proc(vctx: ^VulkanContext) -> ^FrameData {
+    return &vctx.frames[vctx.frame_number % FRAME_OVERLAP]
+}
+
+make_subresource_range :: proc(
+    aspect: vk.ImageAspectFlags, 
+    base_mip: u32 = 0, mip_levels: u32 = vk.REMAINING_MIP_LEVELS,
+    base_array: u32 = 0, array_layers: u32 = vk.REMAINING_ARRAY_LAYERS,
+) -> vk.ImageSubresourceRange {
     subresource_range := vk.ImageSubresourceRange {
-        aspectMask = aspect_mask,
-        baseMipLevel = 0,
-        levelCount = vk.REMAINING_MIP_LEVELS,
-        baseArrayLayer = 0,
-        layerCount = vk.REMAINING_ARRAY_LAYERS,
+        aspectMask = aspect,
+        baseMipLevel = base_mip,
+        levelCount = mip_levels,
+        baseArrayLayer = base_array,
+        layerCount = array_layers,
     }
     return subresource_range
 }
@@ -68,6 +76,77 @@ make_submit_info :: proc(cmd: ^vk.CommandBufferSubmitInfo, ssinfo, wsinfo: ^vk.S
     return info
 }
 
-current_frame :: proc(vctx: ^VulkanContext) -> ^FrameData {
-    return &vctx.frames[vctx.frame_number % FRAME_OVERLAP]
+make_image_info :: proc(
+    format: vk.Format, usage: vk.ImageUsageFlags, extent: vk.Extent3D, 
+    dimension: vk.ImageType = .D2, mip_levels: u32 = 1, array_layers: u32 = 1,
+    samples: vk.SampleCountFlags = {._1}, tiling: vk.ImageTiling = .OPTIMAL,
+) -> vk.ImageCreateInfo {
+    info := vk.ImageCreateInfo {
+        sType = .IMAGE_CREATE_INFO,
+        pNext = nil,
+        imageType = dimension,
+        format = format,
+        extent = extent,
+        mipLevels = mip_levels,
+        arrayLayers = array_layers,
+        samples = samples,
+        tiling = tiling,
+        usage = usage,
+    }
+    return info
+}
+
+make_image_view_info :: proc(
+    format: vk.Format, image: vk.Image, aspect: vk.ImageAspectFlags,
+    dimension: vk.ImageViewType = .D2,
+) -> vk.ImageViewCreateInfo {
+    sr_range := make_subresource_range(aspect, mip_levels=1, array_layers=1)
+
+    info := vk.ImageViewCreateInfo {
+        sType = .IMAGE_VIEW_CREATE_INFO,
+        pNext = nil,
+        viewType = dimension,
+        format = format,
+        image = image,
+        subresourceRange = sr_range,
+    }
+    return info
+}
+
+copy_simple_image_to_image :: proc(cmd: vk.CommandBuffer, src_image, dst_image: vk.Image, src, dst: vk.Extent2D) {
+    blit := vk.ImageBlit2 {
+        sType = .IMAGE_BLIT_2,
+        pNext = nil
+    }
+
+    blit.srcOffsets[1] = {auto_cast src.width, auto_cast src.height, 1}
+    blit.dstOffsets[1] = {auto_cast dst.width, auto_cast dst.height, 1}
+
+    blit.srcSubresource = vk.ImageSubresourceLayers {
+        aspectMask = {.COLOR},
+        baseArrayLayer = 0,
+        layerCount = 1,
+        mipLevel = 0,
+    }
+
+    blit.dstSubresource = vk.ImageSubresourceLayers {
+        aspectMask = {.COLOR},
+        baseArrayLayer = 0,
+        layerCount = 1,
+        mipLevel = 0,
+    }
+
+    info := vk.BlitImageInfo2 {
+        sType = .BLIT_IMAGE_INFO_2,
+        pNext = nil,
+        srcImage = src_image,
+        srcImageLayout = .TRANSFER_SRC_OPTIMAL,
+        dstImage = dst_image,
+        dstImageLayout = .TRANSFER_DST_OPTIMAL,
+        filter = .LINEAR,
+        regionCount = 1,
+        pRegions = &blit
+    }
+
+    vk.CmdBlitImage2(cmd, &info)
 }
