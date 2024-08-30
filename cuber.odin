@@ -40,6 +40,7 @@ main :: proc() {
     init_ctx(&ctx)
     defer deinit_ctx(&ctx)
 
+
     for !glfw.WindowShouldClose(window) { 
         glfw.PollEvents()
         frame, cmd, imdx := cvk.render_prepare(&vctx)

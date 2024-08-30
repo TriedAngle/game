@@ -40,6 +40,9 @@ VulkanContext :: struct {
     descriptor_allocator: DescriptorAllocator,
     draw_descriptor: vk.DescriptorSet,
     draw_descriptor_layout: vk.DescriptorSetLayout,
+
+    gradient_pipeline: vk.Pipeline,
+    gradient_pipeline_layout: vk.PipelineLayout,
 }
 
 QueueType :: enum {
@@ -102,11 +105,15 @@ init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
     create_commands(vctx)
     create_sync_structures(vctx)
     create_descriptors(vctx)
+    create_pipelines(vctx)
 }
 
 deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
     vk.DeviceWaitIdle(device)
     
+    vk.DestroyPipelineLayout(device, gradient_pipeline_layout, nil)
+    vk.DestroyPipeline(device, gradient_pipeline, nil)
+
     deinit_descriptor_allocator(&descriptor_allocator, device)
     vk.DestroyDescriptorSetLayout(device, draw_descriptor_layout, nil)
 
@@ -226,3 +233,4 @@ create_descriptors :: proc(using vctx: ^VulkanContext) {
     vk.UpdateDescriptorSets(device, 1, &draw_write, 0, nil)
 
 }
+

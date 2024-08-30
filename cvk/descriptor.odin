@@ -18,6 +18,7 @@ DescriptorAllocator :: struct {
     pool: vk.DescriptorPool,
 }
 
+
 add_binding :: proc(dlb: ^DescriptorLayoutBuilder, binding: u32, type: vk.DescriptorType, count: u32 = 1, flags: vk.ShaderStageFlags = {}) {
     new := vk.DescriptorSetLayoutBinding {
         binding = binding,

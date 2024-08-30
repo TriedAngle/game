@@ -3,11 +3,15 @@ import vk "vendor:vulkan"
 import "core:math"
 
 render_background :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame: ^FrameData) {
-    flash: f32 = math.abs(math.sin(f32(frame_number) / 120.0)) 
-    clear_color := vk.ClearColorValue { float32={ 0.0, 0.0, flash, 0.0 }}
+    // flash: f32 = math.abs(math.sin(f32(frame_number) / 120.0)) 
+    // clear_color := vk.ClearColorValue { float32={ 0.0, 0.0, flash, 0.0 }}
 
-    clear_range := make_subresource_range({.COLOR})
-    vk.CmdClearColorImage(cmd, swapchain.draw.image, .GENERAL, &clear_color, 1, &clear_range)
+    // clear_range := make_subresource_range({.COLOR})
+    // vk.CmdClearColorImage(cmd, swapchain.draw.image, .GENERAL, &clear_color, 1, &clear_range)
+
+    vk.CmdBindPipeline(cmd, .COMPUTE, gradient_pipeline)
+    vk.CmdBindDescriptorSets(cmd, .COMPUTE, gradient_pipeline_layout, 0, 1, &draw_descriptor, 0, nil)
+    vk.CmdDispatch(cmd, u32(math.ceil(f32(swapchain.draw_extent.width) / 16.0)), u32(math.ceil(f32(swapchain.draw_extent.height) / 16.0)), 1)
 }
 
 
