@@ -133,6 +133,7 @@ create_device :: proc(using vctx: ^VulkanContext) {
     for index in tmp_ids do unique_ids[index] = true 
 
     queue_infos: [dynamic]vk.DeviceQueueCreateInfo
+    defer delete(queue_infos)
 
     for index, _ in unique_ids {
         queue_info := vk.DeviceQueueCreateInfo {

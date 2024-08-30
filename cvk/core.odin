@@ -126,6 +126,7 @@ deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
         vk.DestroySemaphore(device, frame.swapchain_semaphore, nil)
         vk.DestroyCommandPool(device, frame.cmdpool, nil)
         flush(&frame.lambdas, vctx)
+        delete(frame.lambdas.lambdas)
     }
 
     for view in swapchain.views {
@@ -133,6 +134,11 @@ deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
     }
 
     flush(&lambdas, vctx)
+    delete(lambdas.lambdas)
+    delete(swapchain.images)
+    delete(swapchain.formats)
+    delete(swapchain.views)
+    delete(swapchain.present_modes)
     vk.DestroySwapchainKHR(device, swapchain.handle, nil)
     vk.DestroySurfaceKHR(instance, surface, nil)
     vma.DestroyAllocator(vmalloc)
@@ -212,6 +218,8 @@ create_descriptors :: proc(using vctx: ^VulkanContext) {
         builder: DescriptorLayoutBuilder
         add_binding(&builder, 0, .STORAGE_IMAGE)
         draw_descriptor_layout = build_descriptor_set(&builder, device, {.COMPUTE})
+        clear_bindings(&builder)
+        delete(builder.bindings)
     }
 
     draw_descriptor = allocate_descriptor_set(&descriptor_allocator, device, &draw_descriptor_layout)
