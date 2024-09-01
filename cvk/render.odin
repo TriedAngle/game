@@ -38,6 +38,7 @@ render_prepare :: proc(using vctx: ^VulkanContext) -> (frame: ^FrameData, cmd: v
     vk.BeginCommandBuffer(cmd, &binfo)
 
     transition_image(cmd, draw.image, .UNDEFINED, .GENERAL)
+    render_imgui_prepare(vctx)
     return
 }
 
@@ -49,7 +50,11 @@ render_finalize :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame
 
     copy_simple_image_to_image(cmd, draw.image, swapchain.images[imdx], swapchain.draw_extent, swapchain.extent)
 
-    transition_image(cmd, swapchain.images[imdx], .TRANSFER_DST_OPTIMAL, .PRESENT_SRC_KHR)
+    transition_image(cmd, swapchain.images[imdx], .TRANSFER_DST_OPTIMAL, .COLOR_ATTACHMENT_OPTIMAL)
+
+    render_imgui_finalize(vctx, cmd, swapchain.views[imdx])
+
+    transition_image(cmd, swapchain.images[imdx], .COLOR_ATTACHMENT_OPTIMAL, .PRESENT_SRC_KHR)
     
     vk.EndCommandBuffer(cmd)
 

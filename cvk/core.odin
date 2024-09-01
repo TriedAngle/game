@@ -37,6 +37,12 @@ VulkanContext :: struct {
     qf_ids: [QueueType]int,
     queues: [QueueType]vk.Queue,
 
+    imm_fence: vk.Fence,
+    imm_cmd: vk.CommandBuffer,
+    imm_cmdpool: vk.CommandPool,
+
+    imgui_descriptor_pool: vk.DescriptorPool,
+
     descriptor_allocator: DescriptorAllocator,
     draw_descriptor: vk.DescriptorSet,
     draw_descriptor_layout: vk.DescriptorSetLayout,
@@ -106,20 +112,24 @@ init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
     create_sync_structures(vctx)
     create_descriptors(vctx)
     create_pipelines(vctx)
+    init_imgui(vctx, window)
 }
 
 deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
     vk.DeviceWaitIdle(device)
-    
+
     vk.DestroyPipelineLayout(device, gradient_pipeline_layout, nil)
     vk.DestroyPipeline(device, gradient_pipeline, nil)
 
     deinit_descriptor_allocator(&descriptor_allocator, device)
     vk.DestroyDescriptorSetLayout(device, draw_descriptor_layout, nil)
 
+    vk.DestroyDescriptorPool(device, imgui_descriptor_pool, nil)
+
     vk.DestroyImageView(device, swapchain.draw.view, nil)
     vma.DestroyImage(vmalloc, swapchain.draw.image, swapchain.draw.allocation)
 
+    flush(&lambdas, vctx)
     for &frame in frames {
         vk.DestroyFence(device, frame.render_fence, nil)
         vk.DestroySemaphore(device, frame.render_semaphore, nil)
@@ -129,11 +139,14 @@ deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
         delete(frame.lambdas.lambdas)
     }
 
+    vk.DestroyFence(device, imm_fence, nil)
+    vk.DestroyCommandPool(device, imm_cmdpool, nil)
+
     for view in swapchain.views {
         vk.DestroyImageView(device, view, nil)
     }
 
-    flush(&lambdas, vctx)
+    
     delete(lambdas.lambdas)
     delete(swapchain.images)
     delete(swapchain.formats)
@@ -190,6 +203,22 @@ create_commands :: proc(using vctx: ^VulkanContext) {
             os.exit(0)
         }
     }
+
+    if vk.CreateCommandPool(device, &pinfo, nil, &imm_cmdpool) != .SUCCESS {
+        fmt.eprintfln("Error: failed to create CommandPool!")
+        os.exit(0)
+    }
+
+    binfo: vk.CommandBufferAllocateInfo
+    binfo.sType = .COMMAND_BUFFER_ALLOCATE_INFO
+    binfo.commandPool = imm_cmdpool
+    binfo.commandBufferCount = 1
+    binfo.level = .PRIMARY
+
+    if vk.AllocateCommandBuffers(device, &binfo, &imm_cmd) != .SUCCESS {
+        fmt.eprintfln("Error: failed to create CommandBuffer!")
+        os.exit(0)
+    }
 }
 
 create_sync_structures :: proc(using vctx: ^VulkanContext) {
@@ -208,6 +237,8 @@ create_sync_structures :: proc(using vctx: ^VulkanContext) {
         vk.CreateSemaphore(device, &sinfo, nil, &frame.render_semaphore)
         vk.CreateSemaphore(device, &sinfo, nil, &frame.swapchain_semaphore)
     }
+
+    vk.CreateFence(device, &finfo, nil, &imm_fence)
 }
 
 create_descriptors :: proc(using vctx: ^VulkanContext) {
@@ -242,3 +273,25 @@ create_descriptors :: proc(using vctx: ^VulkanContext) {
 
 }
 
+immidiate_submit :: proc(using vctx: ^VulkanContext, other: rawptr, p: proc(vctx: ^VulkanContext, cmd: vk.CommandBuffer, other: rawptr)) {
+    vk.ResetFences(device, 1, &imm_fence)
+    vk.ResetCommandBuffer(imm_cmd, {})
+
+    cmd := imm_cmd
+    binfo := vk.CommandBufferBeginInfo {
+        sType = .COMMAND_BUFFER_BEGIN_INFO,
+        flags = {.ONE_TIME_SUBMIT}
+    }
+
+    vk.BeginCommandBuffer(cmd, &binfo)
+    
+    p(vctx, cmd, other)
+
+    vk.EndCommandBuffer(cmd)
+
+    cmdinfo := make_command_buffer_submit_info(cmd)
+    submitinfo := make_submit_info(&cmdinfo, nil, nil)
+
+    vk.QueueSubmit2(queues[.GCT], 1, &submitinfo, imm_fence)
+    vk.WaitForFences(device, 1, &imm_fence, true, 1000000000)
+}

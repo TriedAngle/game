@@ -1,10 +1,10 @@
 package cvk
 
 import "core:testing"
-
+LambdaValue :: union {rawptr, u64}
 Lambda :: struct {
-    data: rawptr,
-    fun: proc(^VulkanContext, rawptr),
+    data: LambdaValue,
+    fun: proc(^VulkanContext, LambdaValue),
 }
 
 LambdaStack :: struct {
@@ -15,7 +15,7 @@ deinit_lambda_stack :: proc(stack: ^LambdaStack) {
     delete(stack.lambdas)
 }
 
-push :: proc(using dq: ^LambdaStack, lambda: Lambda) {
+lambda :: proc(using dq: ^LambdaStack, lambda: Lambda) {
     append(&lambdas, lambda)
 } 
 
@@ -33,12 +33,12 @@ test_dq :: proc(t: ^testing.T) {
     defer deinit_lambda_stack(&ls)
 
     value := 10 
-    test_proc := proc(vctx: ^VulkanContext, data: rawptr) {
-        value := cast(^u32)data
+    test_proc := proc(vctx: ^VulkanContext, data: LambdaValue) {
+        value := cast(^u32)data.(rawptr)
         value^ += 1
     }
 
-    push(&ls, {&value, test_proc})
+    lambda(&ls, {cast(rawptr)&value, test_proc})
 
     flush(&ls, nil)
 

@@ -150,3 +150,33 @@ copy_simple_image_to_image :: proc(cmd: vk.CommandBuffer, src_image, dst_image: 
 
     vk.CmdBlitImage2(cmd, &info)
 }
+
+make_rendering_info :: proc(extent: vk.Extent2D, color, depth: ^vk.RenderingAttachmentInfo,stencil: ^vk.RenderingAttachmentInfo = nil) -> vk.RenderingInfo {
+    info := vk.RenderingInfo {
+        sType = .RENDERING_INFO,
+        pNext = nil,
+        renderArea = vk.Rect2D{{0, 0}, extent},
+        layerCount = 1,
+        colorAttachmentCount = 1,
+        pColorAttachments = color,
+        pDepthAttachment = depth,
+        pStencilAttachment = stencil
+    }
+
+    return info
+}
+
+make_attachment_info :: proc(view: vk.ImageView, clear: Maybe(vk.ClearValue), layout: vk.ImageLayout = .COLOR_ATTACHMENT_OPTIMAL) -> vk.RenderingAttachmentInfo {
+    clear_value, has_clear := clear.?
+    info := vk.RenderingAttachmentInfo {
+        sType = .RENDERING_ATTACHMENT_INFO,
+        pNext = nil,
+        imageView = view,
+        imageLayout = layout,
+        loadOp = has_clear ? .CLEAR : .LOAD,
+        storeOp = .STORE,
+        clearValue = clear.? or_else vk.ClearValue{},
+    }
+
+    return info
+}
