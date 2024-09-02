@@ -34,15 +34,23 @@ load_shader_module :: proc(device: vk.Device, path: string) -> (module: vk.Shade
 }
 
 create_pipelines :: proc(using vctx: ^VulkanContext) {
-    create_background_pipelines(vctx)
+    create_background_pipelines(vctx, size_of(ComputePushConstants))
 }
 
-create_background_pipelines :: proc(using vctx: ^VulkanContext) {
+create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_size: Maybe(u32)) {
+    pucor := vk.PushConstantRange {
+        offset = 0,
+        size = push_constant_size.? or_else 0,
+        stageFlags = {.COMPUTE},
+    }
+
     linfo := vk.PipelineLayoutCreateInfo {
         sType = .PIPELINE_LAYOUT_CREATE_INFO,
         pNext = nil,
         setLayoutCount = 1,
         pSetLayouts = &draw_descriptor_layout,
+        pPushConstantRanges = &pucor,
+        pushConstantRangeCount = push_constant_size == nil ? 0 : 1,
     }
 
     if vk.CreatePipelineLayout(device, &linfo, nil, &gradient_pipeline_layout) != .SUCCESS {
@@ -50,7 +58,7 @@ create_background_pipelines :: proc(using vctx: ^VulkanContext) {
         os.exit(1)
     }
 
-    shader_module := load_shader_module(vctx.device, "assets/gradient.comp.spv")
+    shader_module := load_shader_module(vctx.device, "assets/gradient_color.comp.spv")
     defer vk.DestroyShaderModule(device, shader_module, nil)
 
     sinfo := vk.PipelineShaderStageCreateInfo {

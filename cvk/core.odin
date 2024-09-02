@@ -2,6 +2,7 @@ package cvk
 
 import "core:fmt"
 import "core:os"
+import mla "core:math/linalg"
 
 import glfw "vendor:glfw"
 import vk "vendor:vulkan"
@@ -88,6 +89,10 @@ Image :: struct {
     allocation: vma.Allocation,
     extent: vk.Extent3D,
     format: vk.Format,
+}
+
+ComputePushConstants :: struct {
+    data0, data1, data2, data3: mla.Vector4f32,
 }
 
 init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {

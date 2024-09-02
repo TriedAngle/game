@@ -5,6 +5,7 @@ import "core:mem"
 import "vendor:glfw"
 import cvk "cvk"
 import imgui "odin-imgui"
+
 Context :: struct {
     window: glfw.WindowHandle,
     initialized: bool,
@@ -44,8 +45,9 @@ main :: proc() {
     for !glfw.WindowShouldClose(window) { 
         glfw.PollEvents()
         frame, cmd, imdx := cvk.render_prepare(&vctx)
-        cvk.render_background(&vctx, cmd, frame)
         defer cvk.render_finalize(&vctx, cmd, frame, imdx)
+
+        cvk.render_background(&vctx, cmd, frame)
         
 
         imgui.NewFrame()
