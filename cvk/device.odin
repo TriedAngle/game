@@ -51,7 +51,7 @@ create_instance :: proc(using vctx: ^VulkanContext, window_extensions: []cstring
         ppEnabledExtensionNames = raw_data(window_extensions),
         enabledLayerCount = auto_cast len(VALIDATION_LAYERS),
         ppEnabledLayerNames = raw_data(VALIDATION_LAYERS),
-        pNext = &debug_messenger_create_info,
+        // pNext = &debug_messenger_create_info,
     }
 
     if vk.CreateInstance(&instance_info, nil, &instance) != vk.Result.SUCCESS {
@@ -166,15 +166,29 @@ create_device :: proc(using vctx: ^VulkanContext) {
     }
 }
 
-debug_callback :: proc "c" (
-    messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT, 
-    messageTypes: vk.DebugUtilsMessageTypeFlagsEXT, 
-    pCallbackData: ^vk.DebugUtilsMessengerCallbackDataEXT, 
-pUserData: rawptr) -> b32 {
-    context = runtime.default_context()
-    fmt.println("Validation layer: ", pCallbackData.pMessage)
-    return false
+when ODIN_OS == .Windows {
+    debug_callback :: proc "stdcall" (
+        messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT, 
+        messageTypes: vk.DebugUtilsMessageTypeFlagsEXT, 
+        pCallbackData: ^vk.DebugUtilsMessengerCallbackDataEXT, 
+    pUserData: rawptr) -> b32 {
+        context = runtime.default_context()
+        fmt.println("Validation layer: ", pCallbackData.pMessage)
+        return false
+    }
+
+} else {
+    debug_callback :: proc "c" (
+        messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT, 
+        messageTypes: vk.DebugUtilsMessageTypeFlagsEXT, 
+        pCallbackData: ^vk.DebugUtilsMessengerCallbackDataEXT, 
+    pUserData: rawptr) -> b32 {
+        context = runtime.default_context()
+        fmt.println("Validation layer: ", pCallbackData.pMessage)
+        return false
+    }
 }
+
 
 find_queue_families :: proc(using vctx: ^VulkanContext) {
     count: u32

@@ -148,7 +148,7 @@ def did_re_execute() -> bool:
 	if has_tool("cl"): return False
 	if "-no_reexecute" in sys.argv: return False
 	print("Re-executing with vcvarsall..")
-	os.system("".join(["vcvarsall.bat x64 && ", sys.executable, " build.py -no_reexecute"]))
+	os.system("".join(["vcvarsall.bat x64 &&", sys.executable, " build.py -no_reexecute"]))
 	return True
 
 def main():
