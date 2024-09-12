@@ -83,3 +83,60 @@ create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_si
     }
 
 }
+
+PipelineBuilder :: struct {
+    shader_stages: [dynamic]vk.PipelineShaderStageCreateInfo,
+    input_assembly: vk.PipelineInputAssemblyStateCreateInfo,
+    rasterizer: vk.PipelineRasterizationStateCreateInfo,
+    color_blend_attachment: vk.PipelineColorBlendAttachmentState,
+    multisampling: vk.PipelineMultisampleStateCreateInfo,
+    pipeline_layout: vk.PipelineLayout,
+    depth_stencil: vk.PipelineDepthStencilStateCreateInfo,
+    rendering: vk.PipelineRenderingCreateInfo,
+    color_format: vk.Format,
+}
+
+pb_init :: proc(using pb: ^PipelineBuilder) {
+    pb_clear(pb)
+}
+
+pb_clear :: proc(using pb: ^PipelineBuilder) {
+    input_assembly = { sType = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO }
+    rasterizer = { sType = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO }
+    multisampling = { sType = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO }
+    depth_stencil = { sType = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO }
+    rendering = { sType = .PIPELINE_RENDERING_CREATE_INFO } 
+    clear(&shader_stages)
+}
+
+pb_build :: proc(using pb: ^PipelineBuilder, device: vk.Device) -> vk.Pipeline {
+    vpinfo := vk.PipelineViewportStateCreateInfo {
+        sType = .PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        pNext = nil,
+        viewportCount = 1,
+        scissorCount = 1,
+    }
+
+    cbinfi := vk.PipelineColorBlendStateCreateInfo {
+        sType = .PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        pNext = nil,
+        logicOpEnable = false,
+        logicOp = .COPY,
+        attachmentCount = 1,
+        pAttachments = &color_blend_attachment,
+    }
+
+    pvisinfo := vk.PipelineVertexInputStateCreateInfo {
+        sType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    }
+
+    gpinfo := vk.GraphicsPipelineCreateInfo {
+        sType = .GRAPHICS_PIPELINE_CREATE_INFO,
+    }
+
+    
+
+    // TODO: implement this
+    pipeline: vk.Pipeline
+    return pipeline
+}
