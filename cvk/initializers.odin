@@ -189,3 +189,20 @@ make_shader_stage_info :: proc(module: vk.ShaderModule, stages: vk.ShaderStageFl
 
     return info
 }
+
+make_pipeline_layout_info :: proc(
+    set_layouts: []vk.DescriptorSetLayout = {},
+    push_constants_ranges: []vk.PushConstantRange = {}
+) -> vk.PipelineLayoutCreateInfo {
+    info := vk.PipelineLayoutCreateInfo {
+        sType = .PIPELINE_LAYOUT_CREATE_INFO,
+        pNext = nil,
+        flags = {},
+        setLayoutCount = auto_cast len(set_layouts),
+        pSetLayouts = raw_data(set_layouts),
+        pushConstantRangeCount = auto_cast len(push_constants_ranges),
+        pPushConstantRanges = raw_data(push_constants_ranges),
+    }
+
+    return info
+}

@@ -50,6 +50,8 @@ VulkanContext :: struct {
 
     gradient_pipeline: vk.Pipeline,
     gradient_pipeline_layout: vk.PipelineLayout,
+    triangle_pipeline: vk.Pipeline,
+    traingle_pipeline_layout: vk.PipelineLayout,
 }
 
 QueueType :: enum {

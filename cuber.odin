@@ -48,7 +48,7 @@ main :: proc() {
         defer cvk.render_finalize(&vctx, cmd, frame, imdx)
 
         cvk.render_background(&vctx, cmd, frame)
-        
+        cvk.render_geometry(&vctx, cmd, frame)
 
         imgui.NewFrame()
         imgui.ShowDemoWindow()

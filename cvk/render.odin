@@ -52,7 +52,7 @@ render_prepare :: proc(using vctx: ^VulkanContext) -> (frame: ^FrameData, cmd: v
 }
 
 render_finalize :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame: ^FrameData, img_idx: u32) {
-    draw := swapchain.draw
+    draw := swapchain.draw 
     imdx := img_idx
     transition_image(cmd, draw.image, .GENERAL, .TRANSFER_SRC_OPTIMAL)
     transition_image(cmd, swapchain.images[imdx], .UNDEFINED, .TRANSFER_DST_OPTIMAL)
@@ -84,4 +84,41 @@ render_finalize :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame
     }
     vk.QueuePresentKHR(queues[.Present], &prenfo)
     frame_number += 1
+}
+
+render_geometry :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer,  frame: ^FrameData) {
+    draw := swapchain.draw 
+
+    transition_image(cmd, draw.image, .GENERAL, .COLOR_ATTACHMENT_OPTIMAL)
+
+    color_attachment := make_attachment_info(draw.view, nil, .COLOR_ATTACHMENT_OPTIMAL)
+
+    draw_extent2d := vk.Extent2D {draw.extent.width, draw.extent.height}
+    rinfo := make_rendering_info(draw_extent2d, &color_attachment, nil)
+    vk.CmdBeginRendering(cmd, &rinfo)
+    vk.CmdBindPipeline(cmd, .GRAPHICS, triangle_pipeline)
+
+    viewport := vk.Viewport {
+        x = 0,
+        y = 0,
+        width = auto_cast draw_extent2d.width,
+        height = auto_cast draw_extent2d.height,
+        minDepth = 0,
+        maxDepth = 1,
+    }
+
+    vk.CmdSetViewport(cmd, 0, 1, &viewport)
+
+    scissor := vk.Rect2D {
+        offset = {0, 0},
+        extent = draw_extent2d,
+    }
+
+    vk.CmdSetScissor(cmd, 0, 1, &scissor)
+
+    vk.CmdDraw(cmd, 3, 1, 0, 0)
+
+    vk.CmdEndRendering(cmd)
+
+    transition_image(cmd, draw.image, .COLOR_ATTACHMENT_OPTIMAL, .GENERAL)
 }

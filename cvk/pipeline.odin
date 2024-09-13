@@ -35,6 +35,7 @@ load_shader_module :: proc(device: vk.Device, path: string) -> (module: vk.Shade
 
 create_pipelines :: proc(using vctx: ^VulkanContext) {
     create_background_pipelines(vctx, size_of(ComputePushConstants))
+    create_raster_pipeline(vctx)
 }
 
 create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_size: Maybe(u32)) {
@@ -58,7 +59,7 @@ create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_si
         os.exit(1)
     }
 
-    shader_module := load_shader_module(vctx.device, "assets/gradient_color.comp.spv")
+    shader_module := load_shader_module(device, "assets/gradient_color.comp.spv")
     defer vk.DestroyShaderModule(device, shader_module, nil)
 
     sinfo := vk.PipelineShaderStageCreateInfo {
@@ -82,6 +83,31 @@ create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_si
         os.exit(1)
     }
 
+}
+
+create_raster_pipeline :: proc(using vctx: ^VulkanContext) {
+    vertex_module := load_shader_module(device, "assets/colored_triangle.vert.spv")
+    defer vk.DestroyShaderModule(device, vertex_module, nil)
+    fragment_module := load_shader_module(device, "assets/colored_triangle.frag.spv")
+    defer vk.DestroyShaderModule(device, fragment_module, nil)
+
+    linfo := make_pipeline_layout_info()
+    vk.CreatePipelineLayout(device, &linfo, nil, &traingle_pipeline_layout)
+
+    pb: PipelineBuilder
+    pb_init(&pb)
+    pb.layout = traingle_pipeline_layout
+    pb_set_shaders(&pb, vertex_module, fragment_module)
+    pb_set_input_topology(&pb, .TRIANGLE_LIST)
+    pb_set_cull_mode(&pb, {}, .CLOCKWISE)
+    pb_set_multisampling_none(&pb)
+    pb_disable_blending(&pb)
+    pb_disable_depthtest(&pb)
+
+    pb_set_color_attachment_format(&pb, swapchain.draw.format)
+    pb_set_depth_format(&pb, .UNDEFINED)
+
+    triangle_pipeline = pb_build(&pb, device)
 }
 
 PipelineBuilder :: struct {
@@ -197,6 +223,12 @@ pb_set_multisampling_none :: proc(using pb: ^PipelineBuilder) {
     multisampling.pSampleMask = nil
     multisampling.alphaToCoverageEnable = false
     multisampling.alphaToOneEnable = false
+}
+
+pb_set_color_attachment_format :: proc(using pb: ^PipelineBuilder, format: vk.Format) {
+    color_format = format
+    rendering.colorAttachmentCount = 1
+    rendering.pColorAttachmentFormats = &color_format // this looks sus ? what if move
 }
 
 pb_disable_blending :: proc(using pb: ^PipelineBuilder) {
