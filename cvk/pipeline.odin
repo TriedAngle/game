@@ -90,7 +90,7 @@ PipelineBuilder :: struct {
     rasterizer: vk.PipelineRasterizationStateCreateInfo,
     color_blend_attachment: vk.PipelineColorBlendAttachmentState,
     multisampling: vk.PipelineMultisampleStateCreateInfo,
-    pipeline_layout: vk.PipelineLayout,
+    layout: vk.PipelineLayout,
     depth_stencil: vk.PipelineDepthStencilStateCreateInfo,
     rendering: vk.PipelineRenderingCreateInfo,
     color_format: vk.Format,
@@ -128,15 +128,94 @@ pb_build :: proc(using pb: ^PipelineBuilder, device: vk.Device) -> vk.Pipeline {
 
     pvisinfo := vk.PipelineVertexInputStateCreateInfo {
         sType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        pNext = nil,
+    }
+
+    dynamics := []vk.DynamicState{ .VIEWPORT, .SCISSOR }
+
+    dsinfo := vk.PipelineDynamicStateCreateInfo {
+        sType = .PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        pNext = nil,
+        dynamicStateCount = auto_cast len(dynamics),
+        pDynamicStates = raw_data(dynamics),
     }
 
     gpinfo := vk.GraphicsPipelineCreateInfo {
         sType = .GRAPHICS_PIPELINE_CREATE_INFO,
+        pNext = &rendering,
+        stageCount = auto_cast len(shader_stages),
+        pStages = raw_data(shader_stages),
+        pVertexInputState = &pvisinfo,
+        pInputAssemblyState = &input_assembly,
+        pViewportState = &vpinfo,
+        pRasterizationState = &rasterizer,
+        pMultisampleState = &multisampling,
+        pColorBlendState = &cbinfi,
+        pDepthStencilState = &depth_stencil,
+        pDynamicState = &dsinfo,
+        layout = layout,
     }
 
-    
-
-    // TODO: implement this
     pipeline: vk.Pipeline
+    
+    if vk.CreateGraphicsPipelines(device, {}, 1, &gpinfo, nil, &pipeline) != .SUCCESS {
+        fmt.eprintfln("Error: Failed to create Pipeline")
+        os.exit(1)
+    }
+
     return pipeline
+}
+
+pb_set_shaders :: proc(using pb: ^PipelineBuilder, vertex, fragment: vk.ShaderModule) {
+    clear(&shader_stages)
+
+    vertex_stage := make_shader_stage_info(vertex, {.VERTEX})
+    fragment_stage := make_shader_stage_info(fragment, {.FRAGMENT})
+
+    append(&shader_stages, vertex_stage)
+    append(&shader_stages, fragment_stage)
+}
+
+pb_set_input_topology :: proc(using pb: ^PipelineBuilder, topology: vk.PrimitiveTopology) {
+    input_assembly.topology = topology
+    input_assembly.primitiveRestartEnable = false
+}
+
+pb_set_polygon_mode :: proc(using pb: ^PipelineBuilder, mode: vk.PolygonMode, line_wdith: f32 = 1) {
+    rasterizer.polygonMode = mode
+    rasterizer.lineWidth = line_wdith
+}
+
+pb_set_cull_mode :: proc(using pb: ^PipelineBuilder, cull: vk.CullModeFlags, face: vk.FrontFace) {
+    rasterizer.cullMode = cull
+    rasterizer.frontFace = face
+}
+
+pb_set_multisampling_none :: proc(using pb: ^PipelineBuilder) {
+    multisampling.sampleShadingEnable = false
+    multisampling.rasterizationSamples = {._1}
+    multisampling.pSampleMask = nil
+    multisampling.alphaToCoverageEnable = false
+    multisampling.alphaToOneEnable = false
+}
+
+pb_disable_blending :: proc(using pb: ^PipelineBuilder) {
+    color_blend_attachment.colorWriteMask = {.R, .G, .B, .A}
+    color_blend_attachment.blendEnable = false
+}
+
+pb_set_depth_format :: proc(using pb: ^PipelineBuilder, format: vk.Format) {
+    rendering.depthAttachmentFormat = format
+}
+
+pb_disable_depthtest :: proc(using pb: ^PipelineBuilder) {
+    ds := &pb.depth_stencil
+    ds.depthTestEnable = false
+    ds.depthWriteEnable = false
+    ds.depthCompareOp = .NEVER
+    ds.stencilTestEnable = false
+    ds.front = {}
+    ds.back = {}
+    ds.minDepthBounds = 0
+    ds.maxDepthBounds = 1
 }

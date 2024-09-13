@@ -95,6 +95,10 @@ ComputePushConstants :: struct {
     data0, data1, data2, data3: mla.Vector4f32,
 }
 
+current_frame :: proc(vctx: ^VulkanContext) -> ^FrameData {
+    return &vctx.frames[vctx.frame_number % FRAME_OVERLAP]
+}
+
 init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
 	context.user_ptr = &instance
 	get_proc_address :: proc(p: rawptr, name: cstring) {

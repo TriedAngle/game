@@ -2,10 +2,6 @@ package cvk
 
 import vk "vendor:vulkan"
 
-current_frame :: proc(vctx: ^VulkanContext) -> ^FrameData {
-    return &vctx.frames[vctx.frame_number % FRAME_OVERLAP]
-}
-
 make_subresource_range :: proc(
     aspect: vk.ImageAspectFlags, 
     base_mip: u32 = 0, mip_levels: u32 = vk.REMAINING_MIP_LEVELS,
@@ -176,6 +172,19 @@ make_attachment_info :: proc(view: vk.ImageView, clear: Maybe(vk.ClearValue), la
         loadOp = has_clear ? .CLEAR : .LOAD,
         storeOp = .STORE,
         clearValue = clear.? or_else vk.ClearValue{},
+    }
+
+    return info
+}
+
+make_shader_stage_info :: proc(module: vk.ShaderModule, stages: vk.ShaderStageFlags, entry: cstring = "main", flags: vk.PipelineShaderStageCreateFlags = {}) -> vk.PipelineShaderStageCreateInfo {
+    info := vk.PipelineShaderStageCreateInfo {
+        sType = .PIPELINE_SHADER_STAGE_CREATE_INFO,
+        pNext = nil,
+        stage = stages,
+        module = module,
+        pName = entry,
+        flags = flags
     }
 
     return info
