@@ -14,7 +14,7 @@ Buffer :: struct {
 create_buffer :: proc(
     allocator: vma.Allocator,
     size: u64, usage: vk.BufferUsageFlags, memory_usage: vma.MemoryUsage,
-    flags: vk.BufferCreateFlags, sharing: vk.SharingMode = .EXCLUSIVE,
+    flags: vk.BufferCreateFlags = {}, sharing: vk.SharingMode = .EXCLUSIVE,
 ) -> Buffer {
     binfo := vk.BufferCreateInfo {
         sType = .BUFFER_CREATE_INFO,
