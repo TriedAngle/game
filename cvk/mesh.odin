@@ -1,6 +1,7 @@
 package cvk
 
 import "core:fmt"
+import "core:mem"
 import la "core:math/linalg"
 
 import vk "vendor:vulkan"
@@ -8,7 +9,11 @@ import vma "../vma"
 
 
 Vertex :: struct {
-    position, normal, color: la.Vector3f32
+    position: la.Vector3f32,
+    pad0: f32, 
+    normal: la.Vector3f32,
+    pad1: f32, 
+    color: la.Vector4f32
 }
 
 GPUMeshBuffer :: struct {
@@ -38,7 +43,7 @@ upload_mesh :: proc(using vctx: ^VulkanContext, indices: []u32, verticies: []Ver
     adinfo := vk.BufferDeviceAddressInfo {
         sType = .BUFFER_DEVICE_ADDRESS_INFO,
         pNext = nil,
-        buffer = mesh.vertex.buffer // should be 0 ??
+        buffer = mesh.vertex.buffer
     }
     
     mesh.address = vk.GetBufferDeviceAddress(device, &adinfo)
@@ -50,27 +55,51 @@ upload_mesh :: proc(using vctx: ^VulkanContext, indices: []u32, verticies: []Ver
         .GPU_ONLY
     )
 
-    staging := create_buffer(vmalloc, size_vertex + size_index, {.TRANSFER_DST}, .CPU_ONLY)
-    data_ptr: rawptr
-    vma.MapMemory(vmalloc,staging.allocation, &data_ptr)
+    staging := create_buffer(vmalloc, size_vertex + size_index, {.TRANSFER_SRC}, .CPU_ONLY)
+    defer vma.DestroyBuffer(vmalloc, staging.buffer, staging.allocation)
+
+    staging_ptr: rawptr
+    vma.MapMemory(vmalloc, staging.allocation, &staging_ptr)
+
+    // defer vma.UnmapMemory(vmalloc, staging.allocation)
+    
+    mem.copy(staging_ptr, raw_data(verticies), auto_cast size_vertex)
+    mem.copy(auto_cast (uintptr(staging_ptr) + auto_cast size_vertex), raw_data(indices), auto_cast size_index)
 
     SubmitInfo :: struct {
         size_vertex: u64,
-        size_index: u64,
+        size_index: u64, 
+        staging: ^Buffer,
+        mesh: ^GPUMeshBuffer
     }
 
-    submit := submit_info {
+    submit := SubmitInfo {
         size_vertex = size_vertex,
         size_index = size_index,
+        staging = &staging,
+        mesh = &mesh,
     }
 
     immidiate_submit(vctx, &submit, proc(vctx: ^VulkanContext, cmd: vk.CommandBuffer, other: rawptr) {
-        submit := cast(^SubmitInfo) other
+        using submit := cast(^SubmitInfo) other
+        
         vertex_copy := vk.BufferCopy {
-            size = submit.
+            size = auto_cast size_vertex,
+            dstOffset = 0,
+            srcOffset = 0,
         }
+
+        vk.CmdCopyBuffer(cmd, staging.buffer, mesh.vertex.buffer, 1, &vertex_copy)
+        
+        index_copy := vk.BufferCopy {
+            size = auto_cast size_index,
+            dstOffset = 0,
+            srcOffset = auto_cast size_vertex,
+        }
+        
+        vk.CmdCopyBuffer(cmd, staging.buffer, mesh.index.buffer, 1, &index_copy)
     })
-
-
+    
+    
     return mesh
 }

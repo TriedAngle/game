@@ -41,6 +41,7 @@ main :: proc() {
     init_ctx(&ctx)
     defer deinit_ctx(&ctx)
 
+    default_data(&ctx)
 
     for !glfw.WindowShouldClose(window) { 
         glfw.PollEvents()
@@ -89,4 +90,34 @@ key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods
     if key == glfw.KEY_ESCAPE && action == glfw.RELEASE {
         glfw.SetWindowShouldClose(window, true)
     }
+}
+
+default_data :: proc(using ctx: ^Context) {
+    vertices: [4]cvk.Vertex
+	vertices[0].position = {0.5, -0.5, 0}
+	vertices[1].position = {0.5, 0.5, 0}
+	vertices[2].position = {-0.5, -0.5, 0}
+	vertices[3].position = {-0.5, 0.5, 0}
+
+	vertices[0].color = {0, 0, 0, 1}
+	vertices[1].color = {0.5, 0.5, 0.5, 1}
+	vertices[2].color = {1, 0, 0, 1}
+	vertices[3].color = {0, 1, 0, 1}
+
+    indices: [6]u32
+    indices[0] = 0
+	indices[1] = 1
+	indices[2] = 2
+
+	indices[3] = 2
+	indices[4] = 1
+	indices[5] = 3
+
+    vctx.rectangle = cvk.upload_mesh(&vctx, indices[:], vertices[:])
+
+    cvk.lambda(&vctx.lambdas, {nil, proc(using vctx: ^cvk.VulkanContext, value: cvk.LambdaValue) {
+        cvk.destroy_buffer(vctx.vmalloc, &rectangle.vertex)
+        cvk.destroy_buffer(vctx.vmalloc, &rectangle.index)
+    }})
+
 }

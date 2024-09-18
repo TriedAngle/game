@@ -33,6 +33,7 @@ create_buffer :: proc(
     buffer: Buffer
 
     vma.CreateBuffer(allocator, &binfo, &vmainfo, &buffer.buffer, &buffer.allocation, &buffer.info)
+    
     return buffer
 }
 

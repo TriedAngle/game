@@ -51,7 +51,12 @@ VulkanContext :: struct {
     gradient_pipeline: vk.Pipeline,
     gradient_pipeline_layout: vk.PipelineLayout,
     triangle_pipeline: vk.Pipeline,
-    traingle_pipeline_layout: vk.PipelineLayout,
+    triangle_pipeline_layout: vk.PipelineLayout,
+    mesh_pipeline: vk.Pipeline,
+    mesh_pipeline_layout: vk.PipelineLayout,
+
+    rectangle: GPUMeshBuffer,
+
 }
 
 QueueType :: enum {
@@ -128,9 +133,6 @@ init_vulkan_ctx :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
 
 deinit_vulkan_ctx :: proc(using vctx: ^VulkanContext) {
     vk.DeviceWaitIdle(device)
-
-    vk.DestroyPipelineLayout(device, gradient_pipeline_layout, nil)
-    vk.DestroyPipeline(device, gradient_pipeline, nil)
 
     deinit_descriptor_allocator(&descriptor_allocator, device)
     vk.DestroyDescriptorSetLayout(device, draw_descriptor_layout, nil)

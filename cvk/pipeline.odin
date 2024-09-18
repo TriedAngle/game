@@ -36,6 +36,7 @@ load_shader_module :: proc(device: vk.Device, path: string) -> (module: vk.Shade
 create_pipelines :: proc(using vctx: ^VulkanContext) {
     create_background_pipelines(vctx, size_of(ComputePushConstants))
     create_raster_pipeline(vctx)
+    create_mesh_pipeline(vctx)
 }
 
 create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_size: Maybe(u32)) {
@@ -83,6 +84,11 @@ create_background_pipelines :: proc(using vctx: ^VulkanContext, push_constant_si
         os.exit(1)
     }
 
+    lambda(&lambdas, {nil, proc(using vctx: ^VulkanContext, value: LambdaValue) {
+        vk.DestroyPipelineLayout(device, gradient_pipeline_layout, nil)
+        vk.DestroyPipeline(device, gradient_pipeline, nil)
+    }})
+
 }
 
 create_raster_pipeline :: proc(using vctx: ^VulkanContext) {
@@ -92,14 +98,16 @@ create_raster_pipeline :: proc(using vctx: ^VulkanContext) {
     defer vk.DestroyShaderModule(device, fragment_module, nil)
 
     linfo := make_pipeline_layout_info()
-    vk.CreatePipelineLayout(device, &linfo, nil, &traingle_pipeline_layout)
+    vk.CreatePipelineLayout(device, &linfo, nil, &triangle_pipeline_layout)
 
     pb: PipelineBuilder
     pb_init(&pb)
-    pb.layout = traingle_pipeline_layout
+    defer pb_deinit(&pb)
+    pb.layout = triangle_pipeline_layout
     pb_set_shaders(&pb, vertex_module, fragment_module)
     pb_set_input_topology(&pb, .TRIANGLE_LIST)
     pb_set_cull_mode(&pb, {}, .CLOCKWISE)
+    pb_set_polygon_mode(&pb, .FILL)
     pb_set_multisampling_none(&pb)
     pb_disable_blending(&pb)
     pb_disable_depthtest(&pb)
@@ -108,6 +116,51 @@ create_raster_pipeline :: proc(using vctx: ^VulkanContext) {
     pb_set_depth_format(&pb, .UNDEFINED)
 
     triangle_pipeline = pb_build(&pb, device)
+
+    lambda(&lambdas, {nil, proc(using vctx: ^VulkanContext, value: LambdaValue) {
+        vk.DestroyPipelineLayout(device, triangle_pipeline_layout, nil)
+        vk.DestroyPipeline(device, triangle_pipeline, nil)
+    }})
+}
+
+create_mesh_pipeline :: proc(using vctx: ^VulkanContext) {
+    vertex_module := load_shader_module(device, "assets/colored_triangle_mesh.vert.spv")
+    defer vk.DestroyShaderModule(device, vertex_module, nil)
+    fragment_module := load_shader_module(device, "assets/colored_triangle.frag.spv")
+    defer vk.DestroyShaderModule(device, fragment_module, nil)
+
+    buffer_range := vk.PushConstantRange {
+        stageFlags = {.VERTEX},
+        offset = 0,
+        size = size_of(GPUPushConstants),
+    }
+
+    ranges := [1]vk.PushConstantRange{buffer_range}
+
+    linfo := make_pipeline_layout_info(push_constant_ranges=ranges[:])
+    vk.CreatePipelineLayout(device, &linfo, nil, &mesh_pipeline_layout)
+
+    pb: PipelineBuilder
+    pb_init(&pb)
+    defer pb_deinit(&pb)
+    pb.layout = mesh_pipeline_layout
+    pb_set_shaders(&pb, vertex_module, fragment_module)
+    pb_set_input_topology(&pb, .TRIANGLE_LIST)
+    pb_set_cull_mode(&pb, {}, .CLOCKWISE)
+    pb_set_polygon_mode(&pb, .FILL)
+    pb_set_multisampling_none(&pb)
+    pb_disable_blending(&pb)
+    pb_disable_depthtest(&pb)
+
+    pb_set_color_attachment_format(&pb, swapchain.draw.format)
+    pb_set_depth_format(&pb, .UNDEFINED)
+
+    mesh_pipeline = pb_build(&pb, device)
+
+    lambda(&lambdas, {nil, proc(using vctx: ^VulkanContext, value: LambdaValue) {
+        vk.DestroyPipelineLayout(device, mesh_pipeline_layout, nil)
+        vk.DestroyPipeline(device, mesh_pipeline, nil)
+    }})
 }
 
 PipelineBuilder :: struct {
@@ -124,6 +177,10 @@ PipelineBuilder :: struct {
 
 pb_init :: proc(using pb: ^PipelineBuilder) {
     pb_clear(pb)
+}
+
+pb_deinit :: proc(using pb: ^PipelineBuilder) {
+    delete(shader_stages)
 }
 
 pb_clear :: proc(using pb: ^PipelineBuilder) {

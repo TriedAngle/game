@@ -1,7 +1,7 @@
 package cvk
 import vk "vendor:vulkan"
 import "core:math"
-import mla "core:math/linalg"
+import la "core:math/linalg"
 
 render_background :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer, frame: ^FrameData) {
     // flash: f32 = math.abs(math.sin(f32(frame_number) / 120.0)) 
@@ -117,6 +117,17 @@ render_geometry :: proc(using vctx: ^VulkanContext, cmd: vk.CommandBuffer,  fram
     vk.CmdSetScissor(cmd, 0, 1, &scissor)
 
     vk.CmdDraw(cmd, 3, 1, 0, 0)
+
+    vk.CmdBindPipeline(cmd, .GRAPHICS, mesh_pipeline)
+    world := la.MATRIX4F32_IDENTITY
+    push_constants := GPUPushConstants {
+        world = world,
+        vertex = rectangle.address,
+    }
+
+    vk.CmdPushConstants(cmd, mesh_pipeline_layout, {.VERTEX}, 0, size_of(GPUPushConstants), &push_constants)
+    vk.CmdBindIndexBuffer(cmd, rectangle.index.buffer, 0, .UINT32)
+    vk.CmdDrawIndexed(cmd, 6, 1, 0, 0, 0)
 
     vk.CmdEndRendering(cmd)
 
