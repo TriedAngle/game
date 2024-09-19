@@ -5,9 +5,9 @@ import "core:os"
 
 import glfw "vendor:glfw"
 import vk "vendor:vulkan"
-import imgui "../odin-imgui"
-import imgui_vk "../odin-imgui/imgui_impl_vulkan"
-import imgui_glfw "../odin-imgui/imgui_impl_glfw"
+import imgui "../imgui"
+import imgui_vk "../imgui/imgui_impl_vulkan"
+import imgui_glfw "../imgui/imgui_impl_glfw"
 
 init_imgui :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
     pool_sizes := []vk.DescriptorPoolSize {
@@ -63,7 +63,7 @@ init_imgui :: proc(using vctx: ^VulkanContext, window: glfw.WindowHandle) {
         DescriptorPool = imgui_descriptor_pool,
         MinImageCount = 3,
         ImageCount = 3,
-        MSAASamples = {._1},
+        MSAASamples = ._1,
         UseDynamicRendering = true,
         PipelineRenderingCreateInfo = imvkprcinfo,
 
