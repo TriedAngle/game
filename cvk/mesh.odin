@@ -27,6 +27,16 @@ GPUPushConstants :: struct {
     vertex: vk.DeviceAddress,
 }
 
+MeshSurface :: struct {
+    start, count: u32,
+}
+
+Mesh :: struct {
+    name: string,
+    surfaces: [dynamic]MeshSurface,
+    buffer: GPUMeshBuffer,
+}
+
 upload_mesh :: proc(using vctx: ^VulkanContext, indices: []u32, verticies: []Vertex) -> GPUMeshBuffer {
     size_vertex: u64 = auto_cast len(verticies) * size_of(Vertex)
     size_index: u64 = auto_cast len(indices) * size_of(u32)
