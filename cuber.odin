@@ -36,12 +36,16 @@ main :: proc() {
     }
 
     fmt.println("Hello!")
+    
     using ctx: Context
     
     init_ctx(&ctx)
     defer deinit_ctx(&ctx)
 
     default_data(&ctx)
+
+    load_gltf("assets/basicmesh.glb")
+
 
     for !glfw.WindowShouldClose(window) { 
         glfw.PollEvents()

@@ -7,6 +7,6 @@
 	url = git@gitlab.com:TriedAngle/odin-imgui.git
 	branch = master
 [submodule "gltf2"]
-	path = gltf2
+	path = gltf
 	url = git@github.com:TriedAngle/glTF2.git
 	branch = master
