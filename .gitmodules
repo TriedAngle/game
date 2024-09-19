@@ -1,9 +1,12 @@
 [submodule "vma"]
 	path = vma
 	url = git@github.com:TriedAngle/odin-vma.git
+	branch = master
 [submodule "imgui"]
 	path = imgui
 	url = git@gitlab.com:TriedAngle/odin-imgui.git
+	branch = master
 [submodule "gltf2"]
 	path = gltf2
 	url = git@github.com:TriedAngle/glTF2.git
+	branch = master
