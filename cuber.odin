@@ -4,7 +4,7 @@ import "core:fmt"
 import "core:mem"
 import "vendor:glfw"
 import cvk "cvk"
-import imgui "odin-imgui"
+import imgui "imgui"
 
 Context :: struct {
     window: glfw.WindowHandle,
